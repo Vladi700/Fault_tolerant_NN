@@ -49,15 +49,36 @@ class default_arhitecture:
     def graph(self) -> nx.DiGraph:
         return self.G
     
+    
     def set_logical_weights(self, a:List[float]):
         for i in range(self.spec.m0): #index of input
             for j in range(self.spec.M): #index of moduli
                 u = f"θ{i}{j}"
                 v = f"Φ{j}"
                 self.G.edges[u, v]["weight"] = float(a[i])
+
+    def set_encoder_map(self, map_x_to_y: Dict[float, float]):
+        """
+        Store the encoder "truth-table" mapping x_k -> y.
+        This is the key thing that differs between gates.
+        """
+        self.G.graph["encoder_map"] = {float(k): float(v) for k, v in map_x_to_y.items()}
     
-    def set_truth_table(self, map_x_to_y: Dict[float, float]):
-        self.G.graph['encoder_map'] = {float(k): float(v) for k, v in map_x_to_y.items()}
+    def compile_encoder_weights(self):
+        enc_map = self.G.graph.get("encoder_map", None)
+        if enc_map is None:
+            raise ValueError("No encoder map")
+        lambdas = np.asarray(self.spec.lambdas, dtype=float)
+        x_vals  = np.asarray(self.spec.x_values, dtype=float)
+        for k, xk in  enumerate(x_vals):
+            keys = np.array(list(enc_map.keys()), dtype=float)
+            nearest = float(keys[np.argmin(np.abs(keys - xk))])
+            y = float(enc_map[nearest])
+            phases = (y / lambdas) % 1.0
+            for j in range(self.spec.M):
+                u = f"x{k}"
+                v = f"Φ'{j}"   
+                self.G.edges[u, v]["weight"] = float(phases[j])
 
     def _build(self):
         M, m0, S = self.spec.M, self.spec.m0, self.spec.S
@@ -171,37 +192,93 @@ class default_arhitecture:
             acc = 0
             for i in range(m0):
                 u = f"θ{i}{j}"
-                v = f"Φ:{j}"
+                v = f"Φ{j}"
                 w = self.G.edges[u, v].get("weight")
                 mask = self._syn_mask()
                 acc += (mask * w) * float(self.G.nodes[u]["value"])
             phi[j] = self._mod1(acc)
 
-            phi = self._add_phase_noise(phi)
+        phi = self._add_phase_noise(phi)
 
-            for j in range(M):
-                self.G.nodes[f"Φ:{j}"]["value"] = float(phi[j])
+        for j in range(M):
+            self.G.nodes[f"Φ{j}"]["value"] = float(phi[j])
 
-            # trig expansion
-            cos_phi = np.cos(2 * np.pi * phi)
-            sin_phi = np.sin(2 * np.pi * phi)
-            cos_phi = self._add_gauss(cos_phi, self.sigma_trig)
-            sin_phi = self._add_gauss(sin_phi, self.sigma_trig)
-            for j in range(M):
-                self.G.nodes[f"cos:{j}"]["value"] = float(cos_phi[j])
-                self.G.nodes[f"sin:{j}"]["value"] = float(sin_phi[j])
+        # trig expansion
+        cos_phi = np.cos(2 * np.pi * phi)
+        sin_phi = np.sin(2 * np.pi * phi)
+        cos_phi = self._add_gauss(cos_phi, self.sigma_trig)
+        sin_phi = self._add_gauss(sin_phi, self.sigma_trig)
+        for j in range(M):
+            self.G.nodes[f"cos{j}"]["value"] = float(cos_phi[j])
+            self.G.nodes[f"sin{j}"]["value"] = float(sin_phi[j])
 
-            #decoder
-            scores = np.zeros(S, dtype=float)
+        #decoder
+        scores = np.zeros(S, dtype=float)
         for k in range(S):
             node_k = f"x{k}"
             acc = 0.0
+            #cos
             for j in range(M):
-                angle = 2 * np.pi * (self.spec.x_values[k] / self.spec.lambdas[j])
-                acc += np.cos(angle) * cos_phi[j] + np.sin(angle) * sin_phi[j]
+                u = f"cos{j}"
+                if self.G.has_edge(u, node_k):
+                    w = float(self.G.edges[u, node_k].get("weight"))
+                    mask = self._syn_mask()
+                    acc += (mask * w) * float(self.G.nodes[u]["value"])
+            
+            #sin
+                u = f"sin{j}"
+                if self.G.has_edge(u, node_k):
+                    w = float(self.G.edges[u, node_k].get("weight"))
+                    mask = self._syn_mask()
+                    acc += (mask * w) * float(self.G.nodes[u]["value"])
+            
             scores[k] = acc
-            self.G.nodes[f"x{k}"]["value"] = float(acc)
-            #this is not yet done, we have to cotinue with the implemantation of the forward function with noise
+
+        scores = self._add_gauss(scores, self.sigma_score)
+
+        for k in range(S):
+            self.G.nodes[f"x{k}"]["value"] = float(scores[k])
+
+        k_hat = int(np.argmax(scores))
+
+        s = np.zeros(S, dtype=float)
+        s[k_hat] = 1.0
+        for k in range(S):
+            self.G.nodes[f"x{k}"]["sel"] = float(s[k])
+
+        out_phases = np.zeros(M, dtype=float)
+        for j in range(M):
+            acc = 0.0
+            v = f"Φ'{j}"
+
+            for k in range(S):
+                u = f"x{k}"
+                w = self.G.edges[u, v].get("weight")
+
+                mask = self._syn_mask()
+                acc += mask * float(w) * float(s[k])
+
+            out_phases[j] = acc
+
+        #output
+        out_phases = self._add_phase_noise(out_phases)
+        out_phases = self._mod1(out_phases)
+
+        # store in encoder nodes (adjust name if yours differs)
+        for j in range(M):
+            self.G.nodes[f"Φ'{j}"]["value"] = float(out_phases[j])
+
+            return {
+                "theta_noisy": theta,
+                "phi": phi,
+                "trig_cos": cos_phi,
+                "trig_sin": sin_phi,
+                "scores": scores,
+                "k_hat": k_hat,
+                "out_phases": out_phases,
+            }
+
+            
 
  
     
