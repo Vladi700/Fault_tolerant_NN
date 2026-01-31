@@ -78,4 +78,31 @@ class NandGate(default_arhitecture):
         encoder_map = enc
         self.set_encoder_map(encoder_map)
         self.compile_encoder_weights()
+
+class BitPhaseEncoder(default_arhitecture):
+    def __init__(self, M, lambdas, *, sigma_phase=0.0, sigma_trig=0.0, sigma_score=0.0, p=0.0):
+        spec = arhitecture_specs(
+        M=M,
+        m0=1,                      # one upstream signal
+        S=2,                       # two symbols
+        lambdas=np.asarray(lambdas, float),
+        x_values=np.array([0.0, 1.0], dtype=float),
+    )
+        super().__init__(spec,
+                         sigma_phase=sigma_phase,
+                         sigma_trig=sigma_trig,
+                         sigma_score=sigma_score,
+                         p=p)
+        
+        self.set_logical_weights([1.0])
+        self.set_encoder_map({0.0: 0.0, 1.0: 1.0})
+        self.compile_encoder_weights()
+
+    def forward_bit(self, bit: int):
+        bit = int(bit)
+        if bit not in (0, 1):
+            raise ValueError("bit must be 0 or 1")
+        
+        theta = self._encode(bit)[None, :]   
+        return self.forward(theta)["out_phases"]
         

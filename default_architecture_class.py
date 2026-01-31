@@ -12,7 +12,7 @@ class arhitecture_specs:
         self.x_values = x_values #possible outputs
 
 class default_arhitecture:
-    def __init__(self, spec: arhitecture_specs, *, sigma_phase, sigma_trig, sigma_score, p):
+    def __init__(self, spec: arhitecture_specs, *, sigma_phase=0, sigma_trig=0, sigma_score=0, p=0):
         self.spec = spec
         self.G = nx.DiGraph()
 
@@ -158,7 +158,7 @@ class default_arhitecture:
                 self.G.add_edge(
                     f"x{k}",
                     f"Φ'{j}",
-                    weight=None,
+                    weight=1,
                     stage = "encoder",
                     name = f"Wenc{j}"   
                 )
