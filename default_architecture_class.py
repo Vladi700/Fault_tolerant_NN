@@ -268,15 +268,15 @@ class default_arhitecture:
         for j in range(M):
             self.G.nodes[f"Φ'{j}"]["value"] = float(out_phases[j])
 
-            return {
-                "theta_noisy": theta,
-                "phi": phi,
-                "trig_cos": cos_phi,
-                "trig_sin": sin_phi,
-                "scores": scores,
-                "k_hat": k_hat,
-                "out_phases": out_phases,
-            }
+        return {
+            "theta_noisy": theta,
+            "phi": phi,
+            "trig_cos": cos_phi,
+            "trig_sin": sin_phi,
+            "scores": scores,
+            "k_hat": k_hat,
+            "out_phases": out_phases,
+        }
 
             
 
