@@ -30,7 +30,7 @@ class OrGate(default_arhitecture):
                          sigma_score=sigma_score,
                          p=p)
         if spec.m0 != 2:
-            raise ValueError("wrong number of input AND gate")
+            raise ValueError("wrong number of input OR gate")
         
         self.set_logical_weights(list(map(float, logical_weights)))
         x_vals = np.asarray(spec.x_values, dtype=float)
@@ -49,7 +49,7 @@ class XorGate(default_arhitecture):
                          sigma_score=sigma_score,
                          p=p)
         if spec.m0 != 2:
-            raise ValueError("wrong number of input AND gate")
+            raise ValueError("wrong number of input XOR gate")
         
         self.set_logical_weights(list(map(float, logical_weights)))
         x_vals = np.asarray(spec.x_values, dtype=float)
@@ -68,7 +68,7 @@ class NandGate(default_arhitecture):
                          sigma_score=sigma_score,
                          p=p)
         if spec.m0 != 2:
-            raise ValueError("wrong number of input AND gate")
+            raise ValueError("wrong number of input NAND gate")
         
         self.set_logical_weights(list(map(float, logical_weights)))
         x_vals = np.asarray(spec.x_values, dtype=float)

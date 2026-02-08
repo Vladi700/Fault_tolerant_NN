@@ -226,6 +226,7 @@ class default_arhitecture:
                     acc += (mask * w) * float(self.G.nodes[u]["value"])
             
             #sin
+            for j in range(M):
                 u = f"sin{j}"
                 if self.G.has_edge(u, node_k):
                     w = float(self.G.edges[u, node_k].get("weight"))
