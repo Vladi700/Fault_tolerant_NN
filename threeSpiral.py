@@ -1,4 +1,3 @@
-
 # Trains a small PyTorch MLP on the 3-spiral classification task (3 classes),
 # then replace each torch.nn.ReLU with a *fault-tolerant ReLU* implemented using
 # your default_architecture_class.py (phase code + decoder + encoder_map).
@@ -123,6 +122,13 @@ class FaultTolerantReLU(nn.Module):
         self.lambdas = np.asarray(cfg.lambdas, dtype=float)
         self.x_values = np.linspace(cfg.x_min, cfg.x_max, cfg.S, dtype=float)
 
+        # Precompute candidate ReLU outputs and their phase codes for robust circular decoding.
+        # The FT architecture maps decoded x_k -> ReLU(x_k), so valid outputs are y_k = max(0, x_k).
+        self.y_values = np.maximum(0.0, self.x_values)
+        # (S, M) table: phase_table[k, j] = (y_k / lambda_j) mod 1
+        self.phase_table = (self.y_values[:, None] / self.lambdas[None, :])
+        self.phase_table = self.phase_table - np.floor(self.phase_table)
+
         spec = arhitecture_specs(
             M=cfg.M,
             m0=1,  # one input
@@ -155,9 +161,20 @@ class FaultTolerantReLU(nn.Module):
         return self._mod1(x / self.lambdas)
 
     def _decode_output_scalar(self, out_phases: np.ndarray) -> float:
-        # assume no wrap => y ~= phase * lambda for each j
-        yj = out_phases * self.lambdas
-        return float(np.mean(yj))
+        """Decode y from noisy phases by solving a discrete least-squares problem on the circle.
+
+        We choose y among the valid outputs y_k = ReLU(x_k) such that its expected phase code
+        (y_k / lambdas) mod 1 is closest to out_phases in circular distance.
+
+        This is robust when phase noise causes wrap-around near 0/1 boundaries.
+        """
+        p = np.asarray(out_phases, dtype=float).reshape(1, -1)  # (1, M)
+        # circular distance on [0,1): d(a,b) = min(|a-b|, 1-|a-b|)
+        diff = np.abs(self.phase_table - p)                     # (S, M)
+        diff = np.minimum(diff, 1.0 - diff)
+        scores = np.sum(diff * diff, axis=1)                    # (S,)
+        k_hat = int(np.argmin(scores))
+        return float(self.y_values[k_hat])
 
     @torch.no_grad()
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -169,9 +186,16 @@ class FaultTolerantReLU(nn.Module):
         out = np.empty_like(flat, dtype=np.float32)
 
         for i in range(flat.shape[0]):
-            theta = self._encode_scalar(float(flat[i]))[None, :]  # shape (1,M)
+            theta = self._encode_scalar(float(flat[i]))[None, :]  # (1, M)
             res = self.ft.forward(theta)
-            y = self._decode_output_scalar(res["out_phases"])
+
+            if "out_phases" not in res:
+                raise KeyError(f"default_arhitecture.forward() did not return 'out_phases'. Keys: {list(res.keys())}")
+
+            out_ph = np.asarray(res["out_phases"], dtype=float).reshape(-1)
+            out_ph = out_ph - np.floor(out_ph)  # keep phases in [0,1) for circular decode
+            
+            y = self._decode_output_scalar(out_ph)
             out[i] = y
 
         out_np = out.reshape(x_np.shape)
