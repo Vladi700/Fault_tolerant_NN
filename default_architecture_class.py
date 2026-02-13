@@ -174,6 +174,8 @@ class default_arhitecture:
         y = float(y)
         return self._mod1(y / self.spec.lambdas.astype(float))
     
+     
+    
     def forward(self, theta:np.ndarray):
         M, m0, S = self.spec.M, self.spec.m0, self.spec.S
         theta = np.asarray(theta, dtype=float)
@@ -236,30 +238,27 @@ class default_arhitecture:
             scores[k] = acc
 
         scores = self._add_gauss(scores, self.sigma_score)
-
-        for k in range(S):
-            self.G.nodes[f"x{k}"]["value"] = float(scores[k])
+        
 
         k_hat = int(np.argmax(scores))
+        x_guessed = float(self.spec.x_values[k_hat])  
+        for k in range(S):
+            self.G.nodes[f"x{k}"]["value"] = k 
 
         s = np.zeros(S, dtype=float)
         s[k_hat] = 1.0
         for k in range(S):
             self.G.nodes[f"x{k}"]["sel"] = float(s[k])
-
+        
         out_phases = np.zeros(M, dtype=float)
         for j in range(M):
-            acc = 0.0
+            #acc = 0.0
             v = f"Φ'{j}"
+            u = f"x{k_hat}"
+            w = self.G.edges[u, v].get("weight")
 
-            for k in range(S):
-                u = f"x{k}"
-                w = self.G.edges[u, v].get("weight")
-
-                mask = self._syn_mask()
-                acc += mask * float(w) * float(s[k])
-
-            out_phases[j] = acc
+            mask = self._syn_mask()
+            out_phases[j] = mask * float(w)
 
         #output
         out_phases = self._add_phase_noise(out_phases)
