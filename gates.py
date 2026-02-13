@@ -80,13 +80,13 @@ class NandGate(default_arhitecture):
         self.compile_encoder_weights()
 
 class BitPhaseEncoder(default_arhitecture):
-    def __init__(self, M, lambdas, *, sigma_phase=0.0, sigma_trig=0.0, sigma_score=0.0, p=0.0):
+    def __init__(self, spec, *, sigma_phase=0.0, sigma_trig=0.0, sigma_score=0.0, p=0.0, logical_weights=[1, 1]):
         spec = arhitecture_specs(
-        M=M,
-        m0=1,                      # one upstream signal
-        S=2,                       # two symbols
-        lambdas=np.asarray(lambdas, float),
-        x_values=np.array([0.0, 1.0], dtype=float),
+            M=spec.M,
+            m0=1,
+            S=spec.S,
+            lambdas=spec.lambdas,
+            x_values=spec.x_values
     )
         super().__init__(spec,
                          sigma_phase=sigma_phase,
@@ -94,7 +94,7 @@ class BitPhaseEncoder(default_arhitecture):
                          sigma_score=sigma_score,
                          p=p)
         
-        self.set_logical_weights([1.0])
+        self.set_logical_weights(list(map(float, logical_weights)))
         self.set_encoder_map({0.0: 0.0, 1.0: 1.0})
         self.compile_encoder_weights()
 

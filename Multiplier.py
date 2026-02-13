@@ -11,11 +11,18 @@ class Multiplier2x2:
         M = spec.M
         lambdas = spec.lambdas
 
-        # --- Encoder
-        self.enc_a1 = BitPhaseEncoder(M, lambdas, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p)
-        self.enc_a0 = BitPhaseEncoder(M, lambdas, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p)
-        self.enc_b1 = BitPhaseEncoder(M, lambdas, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p)
-        self.enc_b0 = BitPhaseEncoder(M, lambdas, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p)
+        bit_spec = arhitecture_specs(
+    M=M,
+    m0=1,
+    S=2,  # Only need 2 decoder symbols for bits [0.0, 1.0]
+    lambdas=lambdas,
+    x_values=np.array([0.0, 1.0], dtype=float)
+)
+        #Encoder 
+        self.enc_a1 = BitPhaseEncoder(bit_spec, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p, logical_weights=[1])
+        self.enc_a0 = BitPhaseEncoder(bit_spec, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p, logical_weights=[1])
+        self.enc_b1 = BitPhaseEncoder(bit_spec, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p, logical_weights=[1])
+        self.enc_b0 = BitPhaseEncoder(bit_spec, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p, logical_weights=[1])
 
         # --- Gate 
         self.AND_a0b0 = AndGate(spec, sigma_phase=sigma_phase, sigma_trig=sigma_trig, sigma_score=sigma_score, p=p)
