@@ -89,7 +89,7 @@ You can instantiate this class with different settings and extend it for specifi
 | `NandGate` | Outputs logical NAND |
 | `BitPhaseEncoder` | Helper to encode bits into phases |
 
-All gate classes set encoder maps and compile weights into the underlying graph model.  [oai_citation:2‡GitHub](https://raw.githubusercontent.com/Vladi700/Fault_tolerant_NN/main/gates.py)
+All gate classes set encoder maps and compile weights into the underlying graph model. 
 
 ---
 
@@ -100,7 +100,7 @@ All gate classes set encoder maps and compile weights into the underlying graph 
 - four AND gates for partial products
 - XOR and AND combinations for sum and carry
 
-It consumes bits as inputs and returns product bits, allowing noise/fault parameters (`sigma_phase`, `sigma_trig`, `sigma_score`, `p`) to be configured when instantiating the class.  [oai_citation:3‡GitHub](https://raw.githubusercontent.com/Vladi700/Fault_tolerant_NN/main/Multiplier.py)
+It consumes bits as inputs and returns product bits, allowing noise/fault parameters (`sigma_phase`, `sigma_trig`, `sigma_score`, `p`) to be configured when instantiating the class. 
 
 ---
 
